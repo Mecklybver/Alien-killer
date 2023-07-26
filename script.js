@@ -382,6 +382,8 @@ class Game {
     this.waves = [];
     this.waves.push(new Wave(this));
     this.gameOver = false;
+    this.createProjectiles();
+
   }
 
   draw(ctx) {
