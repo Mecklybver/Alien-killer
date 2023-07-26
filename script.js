@@ -333,24 +333,64 @@ class Background {
     this.y = 0;
     this.width = this.game.width;
     this.height = this.game.height * 3;
+    this.startRadius = 1;
+    this.numberOfStars = 200;
+    this.stars = [];
+    this.createStars();
   }
 
   draw(ctx) {
     this.update();
     ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
-    ctx.drawImage(
-      this.img,
-      this.x,
-      this.y - this.height,
-      this.width,
-      this.height
-    );
+    ctx.drawImage(this.img, this.x, this.y - this.height, this.width, this.height);
+
+    // Draw the stars
+    ctx.fillStyle = "white";
+    this.stars.forEach((star) => {
+      ctx.save()
+      ctx.globalAlpha = star.alpha;
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, this.startRadius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
   }
+
   update() {
     this.y += 0.3;
     if (this.y >= this.height) this.y = 0;
+    let movingAlpha = -0.01; 
+
+this.stars.forEach((star) => {
+  star.y += 0.3;
+  if (star.y > this.game.height) star.y = 0;
+  star.alpha += movingAlpha;
+  star.alpha = Math.max(0, Math.min(star.alpha, 1));
+  if (star.alpha <= 0 || star.alpha >= 1) {
+    movingAlpha *= -1;
+  }
+});
+
+
+
+
+
+
+
+  }
+  
+
+  createStars() {
+    for (let i = 0; i < this.numberOfStars; i++) {
+      const x = Math.random() * this.width;
+      const y = Math.random() * this.game.height;
+      const alpha = Math.random() 
+      this.stars.push({ x, y, alpha });
+    }
   }
 }
+
+
 
 class Game {
   constructor(canvas) {
