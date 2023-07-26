@@ -22,8 +22,8 @@ class Player {
     this.img2.src = "./img/player_jets.png";
     this.spriteWidth = 140;
     this.spriteHeight = 120;
-    this.width = 80;
-    this.height = 80;
+    this.width = 65;
+    this.height = 65;
     this.x = this.game.width * 0.5 - this.width * 0.5;
     this.y = this.game.height - this.height * 1.08;
     this.frameX = 0;
