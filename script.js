@@ -6,9 +6,11 @@ document.body.appendChild(loadingScreen);
 
 const canvas = document.createElement("canvas");
 document.body.appendChild(canvas);
+let PixelRatio = window.devicePixelRatio
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 const ctx = canvas.getContext("2d");
+
 
 
 
@@ -24,8 +26,8 @@ class Player {
     this.img2.src = "./img/player_jets.png";
     this.spriteWidth = 140;
     this.spriteHeight = 120;
-    this.width = 65;
-    this.height = 65;
+    this.width = 65 / PixelRatio*1.4;
+    this.height = 65 / PixelRatio*1.4;
     this.x = this.game.width * 0.5 - this.width * 0.5;
     this.y = this.game.height - this.height * 1.08;
     this.frameX = 0;
@@ -398,8 +400,8 @@ class Background {
     this.img.src = "./img/background.png";
     this.x = 0;
     this.y = 0;
-    this.width = this.game.width;
-    this.height = this.game.height * 3;
+    this.width = this.game.width * PixelRatio;
+    this.height = this.game.height * 3 * PixelRatio;
     this.startRadius = 1;
     this.numberOfStars = 200;
     this.stars = [];
@@ -472,7 +474,7 @@ class Game {
     this.score = 0;
     this.columns = 2;
     this.rows = 2;
-    this.enemySize = 70;
+    this.enemySize = 70  / PixelRatio*1.4;
     this.waves = [];
     this.waves.push(new Wave(this));
     this.countWave = 1;
@@ -600,5 +602,14 @@ addEventListener("load", () => {
     game.bg.width = innerWidth;
     game.bg.height = innerHeight;
     game.player.y = innerHeight - game.player.height;
+    if (navigator.userAgent.match(/Android/i)
+         || navigator.userAgent.match(/webOS/i)
+         || navigator.userAgent.match(/iPhone/i)
+         || navigator.userAgent.match(/iPad/i)
+         || navigator.userAgent.match(/iPod/i)
+         || navigator.userAgent.match(/BlackBerry/i)
+         || navigator.userAgent.match(/Windows Phone/i)){
+
+         }
   });
 });
