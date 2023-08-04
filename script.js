@@ -10,6 +10,8 @@ canvas.width = innerWidth;
 canvas.height = innerHeight;
 const ctx = canvas.getContext("2d");
 
+
+
 class Player {
   constructor(game) {
     this.game = game;
@@ -34,6 +36,43 @@ class Player {
     this.frameJets = 1
     this.SpriteJetsWidth = 140
     this.SpriteJetsHegiht = 130
+    this.touch = 0
+
+   window.addEventListener("touchstart", (e)=>{
+    e.preventDefault();
+    document.documentElement.requestFullscreen();
+    let identifier
+    [...e.changedTouches].forEach(touch =>{
+      identifier = touch.identifier
+    })
+    if(identifier == 2){
+      document.exitFullscreen();
+    }
+    if(identifier == 1){
+      this.shoot();
+    }
+    if(identifier == 0){
+      this.touch=e.touches[0].pageX
+    }
+
+   },{passive:false});
+   window.addEventListener("touchmove", (e)=>{
+    e.preventDefault();
+    if(this.touch > e.touches[0].pageX){
+      this.speed = - (this.touch - e.touches[0].pageX) / 20
+    } else{
+      this.speed =  (e.touches[0].pageX -this.touch ) / 20
+    }
+
+
+
+   },{passive:false});
+   window.addEventListener("touchend", (e)=>{
+    e.preventDefault();
+
+
+   },{passive:false});
+
 
     window.addEventListener("keydown", (e) => {
       switch (e.key) {
@@ -86,6 +125,8 @@ class Player {
           break;
       }
     });
+
+    
   }
   restart() {
     this.x = this.game.width * 0.5 - this.width * 0.5;
@@ -141,7 +182,7 @@ class Player {
 
 
     if (this.timer >= this.interval && this.game.fired) {
-  if (this.frameX === this.maxFrame - 1) {
+  if (this.frameX === this.maxFrame - 3) {
     this.frameX = 0; 
     this.game.fired = false;
   } else {
@@ -368,7 +409,7 @@ class Background {
   draw(ctx) {
     this.update();
     ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
-    ctx.drawImage(this.img, this.x, this.y - this.height, this.width, this.height);
+    ctx.drawImage(this.img, this.x, this.y - this.height +2, this.width, this.height);
 
     // Draw the stars
     ctx.fillStyle = "white";
