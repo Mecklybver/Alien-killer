@@ -62,8 +62,13 @@ class Player {
     e.preventDefault();
     if(this.touch > e.touches[0].pageX){
       this.speed = - (this.touch - e.touches[0].pageX) / 20
+      this.frameJets = 2;
+
+
     } else{
       this.speed =  (e.touches[0].pageX -this.touch ) / 20
+      this.frameJets = 0;
+
     }
 
 
@@ -71,8 +76,7 @@ class Player {
    },{passive:false});
    window.addEventListener("touchend", (e)=>{
     e.preventDefault();
-
-
+    this.frameJets = 0;
    },{passive:false});
 
 
