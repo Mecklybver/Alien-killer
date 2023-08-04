@@ -305,7 +305,7 @@ class Enemy {
 
     //lose condition
     if (this.y + this.height > this.game.height) {
-      this.player.lives--;
+      this.game.gameOver = true;
       this.markedForDeletion = true;
     }
   }
