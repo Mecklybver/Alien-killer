@@ -273,13 +273,35 @@ class Beetlemorph extends Enemy {
     this.img.src = this.img.src = "./img/beetlemorph.png";
     this.frameX = 0;
     this.frameY = Math.floor(Math.random() * 4);
-    this.maxFrame = 2;
+    this.maxFrame = 5;
     this.lives = 1;
     this.maxLives = this.lives;
     this.timer = 0;
     this.interval = 100;
   }
+
 }
+
+class Rhinomorph extends Enemy {
+  constructor(game, positionX, positionY) {
+    super(game, positionX, positionY);
+    this.img = new Image();
+    this.img.src = this.img.src = "./img/rhinomorph.png";
+    this.frameX = 0;
+    this.frameY = Math.floor(Math.random() * 4);
+    this.maxFrame = 2;
+    this.lives = 4;
+    this.maxLives = this.lives;
+    this.timer = 0;
+    this.interval = 100;
+  }
+    hit(damage) {
+    this.lives -= damage;
+    this.frameX = this.maxLives - Math.floor(this.lives);
+  }
+}
+
+
 
 class Wave {
   constructor(game) {
@@ -299,8 +321,12 @@ class Wave {
       for (let x = 0; x < this.game.columns; x++) {
         let enemyX = x * this.game.enemySize;
         let enemyY = y * this.game.enemySize;
-        // Corrected the argument order here
-        this.enemies.push(new Beetlemorph(this.game, enemyX, enemyY));
+        if (Math.random() < 0.2){
+        this.enemies.push(new Rhinomorph(this.game, enemyX, enemyY))
+      } else {
+        this.enemies.push(new Beetlemorph(this.game, enemyX, enemyY))
+      }
+      
       }
     }
   }
