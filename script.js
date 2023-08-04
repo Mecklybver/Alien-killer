@@ -200,7 +200,7 @@ class Player {
   }
   shoot() {
     const projectile = this.game.getProjectiles();
-    if (projectile) projectile.start(this.x + this.width * 0.5, this.y - 5);
+    if (projectile) projectile.start(this.x + this.width * 0.5, this.y - 15);
   }
 }
 
@@ -556,12 +556,14 @@ class Game {
     if (this.gameOver) {
       ctx.save();
       ctx.textAlign = "center";
-      ctx.font = "108px Impact";
+      let size = this.width * 0.5 / 8;
+      ctx.font = `${38 + size}px Impact`;
       ctx.shadowColor = "black";
       ctx.shadowOffsetX = 6;
       ctx.shadowOffsetY = 6;
       ctx.fillText("GAME OVER", this.width * 0.5, this.height * 0.5);
-      ctx.font = "50px Impact";
+      
+      ctx.font = `${size}px Impact`;
       ctx.fillText("Press R to restart", this.width * 0.5, this.height * 0.6);
       ctx.restore();
     }
