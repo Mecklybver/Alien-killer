@@ -6,13 +6,10 @@ document.body.appendChild(loadingScreen);
 
 const canvas = document.createElement("canvas");
 document.body.appendChild(canvas);
-let PixelRatio = window.devicePixelRatio
+let PixelRatio = window.devicePixelRatio;
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 const ctx = canvas.getContext("2d");
-
-
-
 
 class Player {
   constructor(game) {
@@ -26,59 +23,61 @@ class Player {
     this.img2.src = "./img/player_jets.png";
     this.spriteWidth = 140;
     this.spriteHeight = 120;
-    this.width = 65 / PixelRatio*1.4;
-    this.height = 65 / PixelRatio*1.4;
+    this.width = (65 / PixelRatio) * 1.4;
+    this.height = (65 / PixelRatio) * 1.4;
     this.x = this.game.width * 0.5 - this.width * 0.5;
     this.y = this.game.height - this.height * 1.08;
     this.frameX = 0;
     this.maxFrame = 4;
-    this.timer = 0;
-    this.interval = 60;
     this.speed = 0;
-    this.frameJets = 1
-    this.SpriteJetsWidth = 140
-    this.SpriteJetsHegiht = 130
-    this.touch = 0
+    this.frameJets = 1;
+    this.SpriteJetsWidth = 140;
+    this.SpriteJetsHegiht = 130;
+    this.touch = 0;
 
-   window.addEventListener("touchstart", (e)=>{
-    e.preventDefault();
-    document.documentElement.requestFullscreen();
-    let identifier
-    [...e.changedTouches].forEach(touch =>{
-      identifier = touch.identifier
-    })
-    if(identifier == 2){
-      document.exitFullscreen();
-    }
-    if(identifier == 1){
-      this.shoot();
-    }
-    if(identifier == 0){
-      this.touch=e.touches[0].pageX
-    }
-
-   },{passive:false});
-   window.addEventListener("touchmove", (e)=>{
-    e.preventDefault();
-    if(this.touch > e.touches[0].pageX){
-      this.speed = - (this.touch - e.touches[0].pageX) / 20
-      this.frameJets = 2;
-
-
-    } else{
-      this.speed =  (e.touches[0].pageX -this.touch ) / 20
-      this.frameJets = 0;
-
-    }
-
-
-
-   },{passive:false});
-   window.addEventListener("touchend", (e)=>{
-    e.preventDefault();
-    this.frameJets = 0;
-   },{passive:false});
-
+    window.addEventListener(
+      "touchstart",
+      (e) => {
+        e.preventDefault();
+        document.documentElement.requestFullscreen();
+        let identifier;
+        [...e.changedTouches].forEach((touch) => {
+          identifier = touch.identifier;
+        });
+        if (identifier == 2) {
+          document.exitFullscreen();
+        }
+        if (identifier == 1) {
+          this.shoot();
+        }
+        if (identifier == 0) {
+          this.touch = e.touches[0].pageX;
+        }
+      },
+      { passive: false }
+    );
+    window.addEventListener(
+      "touchmove",
+      (e) => {
+        e.preventDefault();
+        if (this.touch > e.touches[0].pageX) {
+          this.speed = -(this.touch - e.touches[0].pageX) / 20;
+          this.frameJets = 2;
+        } else {
+          this.speed = (e.touches[0].pageX - this.touch) / 20;
+          this.frameJets = 0;
+        }
+      },
+      { passive: false }
+    );
+    window.addEventListener(
+      "touchend",
+      (e) => {
+        e.preventDefault();
+        this.frameJets = 0;
+      },
+      { passive: false }
+    );
 
     window.addEventListener("keydown", (e) => {
       switch (e.key) {
@@ -124,15 +123,12 @@ class Player {
         case " ":
           if (this.keys.includes(e.key)) {
             this.keys.splice(this.keys.indexOf(e.key), 1);
-            
           }
           break;
         default:
           break;
       }
     });
-
-    
   }
   restart() {
     this.x = this.game.width * 0.5 - this.width * 0.5;
@@ -179,26 +175,19 @@ class Player {
       this.game.fired = true;
     }
 
-    
-
     if (this.x <= -this.width * 0.5) this.x = -this.width * 0.5;
     if (this.x >= this.game.width - this.width * 0.5) {
       this.x = this.game.width - this.width * 0.5;
     }
 
-
-    if (this.timer >= this.interval && this.game.fired) {
-  if (this.frameX === this.maxFrame - 3) {
-    this.frameX = 0; 
-    this.game.fired = false;
-  } else {
-    this.frameX++; 
-  }
-  this.timer = 0;
-} else {
-  this.timer += deltaTime;
-}
-
+    if (this.game.spriteUpdate && this.game.fired) {
+      if (this.frameX === this.maxFrame - 3) {
+        this.frameX = 0;
+        this.game.fired = false;
+      } else {
+        this.frameX++;
+      }
+    }
 
     this.x += this.speed;
   }
@@ -254,7 +243,7 @@ class Enemy {
     this.positionX = positionX;
     this.positionY = positionY;
     this.markedForDeletion = false;
-    this.spriteSize = 80
+    this.spriteSize = 80;
   }
   draw(ctx) {
     // ctx.strokeRect(this.x, this.y, this.width, this.height);
@@ -270,32 +259,31 @@ class Enemy {
       this.height
     );
   }
-  update(x, y, deltaTime) {
+  update(x, y) {
     this.x = x + this.positionX;
     this.y = y + this.positionY;
 
     //check collision with projectiles
     this.game.projectiles.forEach((projectile) => {
-      if (!projectile.free && this.game.checkCollision(projectile, this)) {
+      if (
+        !projectile.free &&
+        this.game.checkCollision(projectile, this) &&
+        this.lives > 0
+      ) {
         this.hit(1);
         projectile.reset();
       }
     });
     if (this.lives < 1) {
-      if (this.timer >= this.interval) {
-        this.timer = 0;
-        this.frameX++;
-        if (this.frameX > this.maxFrame) {
-          this.markedForDeletion = true;
-          if (!this.game.gameOver) this.game.score += this.maxLives;
-        }
-      } else {
-        this.timer += deltaTime;
+      if (this.game.spriteUpdate) this.frameX++;
+      if (this.frameX > this.maxFrame) {
+        this.markedForDeletion = true;
+        if (!this.game.gameOver) this.game.score += this.maxLives;
       }
     }
     // check  collision with player
     if (this.game.checkCollision(this, this.game.player) && this.lives > 0) {
-      this.lives = 0
+      this.lives = 0;
       if (!this.game.gameOver) {
         if (this.game.score > 0) this.game.score--;
         this.game.player.lives--;
@@ -326,7 +314,6 @@ class Beetlemorph extends Enemy {
     this.timer = 0;
     this.interval = 100;
   }
-
 }
 
 class Rhinomorph extends Enemy {
@@ -342,13 +329,11 @@ class Rhinomorph extends Enemy {
     this.timer = 0;
     this.interval = 100;
   }
-    hit(damage) {
+  hit(damage) {
     this.lives -= damage;
     this.frameX = this.maxLives - Math.floor(this.lives);
   }
 }
-
-
 
 class Wave {
   constructor(game) {
@@ -360,6 +345,7 @@ class Wave {
     this.speedX = Math.random() > 0.5 ? 2 : -2;
     this.speedY = 0;
     this.enemies = [];
+    this.markedForDeletion = false;
     this.nextWaveTrigger = false;
     this.create();
   }
@@ -368,12 +354,11 @@ class Wave {
       for (let x = 0; x < this.game.columns; x++) {
         let enemyX = x * this.game.enemySize;
         let enemyY = y * this.game.enemySize;
-        if (Math.random() < 0.2){
-        this.enemies.push(new Rhinomorph(this.game, enemyX, enemyY))
-      } else {
-        this.enemies.push(new Beetlemorph(this.game, enemyX, enemyY))
-      }
-      
+        if (Math.random() < 0.2) {
+          this.enemies.push(new Rhinomorph(this.game, enemyX, enemyY));
+        } else {
+          this.enemies.push(new Beetlemorph(this.game, enemyX, enemyY));
+        }
       }
     }
   }
@@ -394,6 +379,7 @@ class Wave {
 
     this.enemies.forEach((enemy) => enemy.update(this.x, this.y, deltaTime));
     this.enemies = this.enemies.filter((enemy) => !enemy.markedForDeletion);
+    if (this.enemies.length <= 0) this.markedForDeletion = true;
   }
 }
 
@@ -415,12 +401,18 @@ class Background {
   draw(ctx) {
     this.update();
     ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
-    ctx.drawImage(this.img, this.x, this.y - this.height +2, this.width, this.height);
+    ctx.drawImage(
+      this.img,
+      this.x,
+      this.y - this.height + 2,
+      this.width,
+      this.height
+    );
 
     // Draw the stars
     ctx.fillStyle = "white";
     this.stars.forEach((star) => {
-      ctx.save()
+      ctx.save();
       ctx.globalAlpha = star.alpha;
       ctx.beginPath();
       ctx.arc(star.x, star.y, this.startRadius, 0, Math.PI * 2);
@@ -432,38 +424,115 @@ class Background {
   update() {
     this.y += 0.3;
     if (this.y >= this.height) this.y = 0;
-    let movingAlpha = -0.01; 
+    let movingAlpha = -0.01;
 
-this.stars.forEach((star) => {
-  star.y += 0.3;
-  if (star.y > this.game.height) star.y = 0;
-  star.alpha += movingAlpha;
-  star.alpha = Math.max(0, Math.min(star.alpha, 1));
-  if (star.alpha <= 0 || star.alpha >= 1) {
-    movingAlpha *= -1;
+    this.stars.forEach((star) => {
+      star.y += 0.3;
+      if (star.y > this.game.height) star.y = 0;
+      star.alpha += movingAlpha;
+      star.alpha = Math.max(0, Math.min(star.alpha, 1));
+      if (star.alpha <= 0 || star.alpha >= 1) {
+        movingAlpha *= -1;
+      }
+    });
   }
-});
-
-
-
-
-
-
-
-  }
-  
 
   createStars() {
     for (let i = 0; i < this.numberOfStars; i++) {
       const x = Math.random() * this.width;
       const y = Math.random() * this.game.height;
-      const alpha = Math.random() 
+      const alpha = Math.random();
       this.stars.push({ x, y, alpha });
     }
   }
 }
+// to finish boss class
+class Boss {
+  constructor(game, bossLives) {
+    this.game = game;
+    this.width = 200;
+    this.height = 200;
+    this.x = this.game.width * 0.5 - this.width * 0.5;
+    this.y = -this.height;
+    this.speedX = Math.random() < 0.5 ? -1 : 1;
+    this.speedY = 0;
+    this.lives = bossLives;
+    this.maxLives = this.lives;
+    this.markedForDeletion = false;
+    this.image = new Image();
+    this.image.src = "./img/Boss.png";
+    this.frameX = 0;
+    this.frameY = Math.floor(Math.random() * 4);
+    this.maxFrame = 11;
+  }
+  draw(ctx) {
+    ctx.drawImage(
+      this.image,
+      this.frameX * this.width,
+      this.frameY * this.height,
+      this.width,
+      this.height,
+      this.x,
+      this.y,
+      this.width,
+      this.height
+    );
+    if (this.lives > 0) {
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.shadowOffsetX = 6;
+      ctx.shadowOffsetY = 6;
+      ctx.shadowColor = "red";
+      ctx.shadowBlur = 20;
+      ctx.fillText(this.lives, this.x + this.width * 0.5, this.y + 50);
+      ctx.restore();
+    }
+  }
+  update() {
+    this.speedY = 0;
+    if (this.game.spriteUpdate && this.lives > 0) this.frameX = 0;
+    if (this.y < 0) this.y += 10;
+    if (this.x < 0 || this.x > this.game.width - this.width && this.lives > 0) {
+      this.speedX *= -1;
+      this.speedY = this.height * 0.5;
+    }
+    this.x += this.speedX;
+    this.y += this.speedY;
+
+    this.game.projectiles.forEach((projectile) => {
+      if (
+        this.game.checkCollision(this, projectile) &&
+        !projectile.free &&
+        this.lives > 0
+      ) {
+        this.hit(1);
+        projectile.reset();
+      }
+    });
+
+    if (this.game.checkCollision(this, this.game.player) && this.lives > 0){
+      this.game.gameOver = true;
+      this.lives = 0;
+    }
 
 
+    if (this.lives < 1 && this.game.spriteUpdate) {
+      this.frameX++;
+      if (this.frameX  > this.maxFrame){
+         this.markedForDeletion = true;
+         this.game.score += this.maxLives;
+         this.game.bossLives += 5;
+         if(!this.game.gameOver) this.game.newWave();
+        }
+    }
+
+    if (this.y + this.height > this.game.height) this.game.gameOver = true;
+  }
+  hit(damage) {
+    this.lives -= damage;
+    if (this.lives > 0) this.frameX = 1;
+  }
+}
 
 class Game {
   constructor(canvas) {
@@ -478,45 +547,62 @@ class Game {
     this.score = 0;
     this.columns = 2;
     this.rows = 2;
-    this.enemySize = 70  / PixelRatio*1.4;
+    this.enemySize = (70 / PixelRatio) * 1.4;
     this.waves = [];
-    this.waves.push(new Wave(this));
+
+    this.spriteUpdate = false;
+    this.spriteTimer = 0;
+    this.spriteInterval = 120;
+    // this.waves.push(new Wave(this));
     this.countWave = 1;
     this.gameOver = false;
     this.fired = false;
+    this.bossArray = [];
+    this.bossLives = 10;
+    this.restart();
   }
   restart() {
     this.player.restart();
     this.projectiles = [];
+    this.bossArray = [];
     this.score = 0;
     this.columns = 2;
     this.rows = 2;
     this.countWave = 1;
     this.waves = [];
+    this.bossLives = 10;
     this.waves.push(new Wave(this));
+    // this.bossArray.push(new Boss(this, this.bossLives));
     this.gameOver = false;
     this.createProjectiles();
-
   }
 
   draw(ctx) {
     this.bg.draw(ctx);
+    this.bossArray.forEach((boss) => boss.draw(ctx));
     this.player.draw(ctx);
     this.projectiles.forEach((projectile) => projectile.draw(ctx));
     this.waves.forEach((wave) => wave.draw(ctx));
     this.drawStatusText(ctx);
-
   }
   update(deltaTime) {
+    if (this.spriteTimer > this.spriteInterval) {
+      this.spriteUpdate = true;
+      this.spriteTimer = 0;
+    } else {
+      this.spriteUpdate = false;
+      this.spriteTimer += deltaTime;
+    }
+    this.bossArray.forEach((boss) => boss.update(deltaTime));
+    this.bossArray = this.bossArray.filter(boss => !boss.markedForDeletion);
+
     this.player.update(deltaTime);
     this.projectiles.forEach((projectile) => projectile.update(deltaTime));
     this.waves.forEach((wave) => {
       wave.update(deltaTime);
       if (wave.enemies.length < 1 && !wave.nextWaveTrigger && !this.gameOver) {
         this.newWave();
-        this.countWave++;
         wave.nextWaveTrigger = true;
-        if (this.player.lives > this.player.maxLive) this.player.lives++;
       }
     });
   }
@@ -560,29 +646,38 @@ class Game {
     if (this.gameOver) {
       ctx.save();
       ctx.textAlign = "center";
-      let size = this.width * 0.5 / 8;
+      let size = (this.width * 0.5) / 8;
       ctx.font = `${38 + size}px Impact`;
       ctx.shadowColor = "black";
       ctx.shadowOffsetX = 6;
       ctx.shadowOffsetY = 6;
       ctx.fillText("GAME OVER", this.width * 0.5, this.height * 0.5);
-      
+
       ctx.font = `${size}px Impact`;
       ctx.fillText("Press R to restart", this.width * 0.5, this.height * 0.6);
       ctx.restore();
     }
   }
   newWave() {
-    if (
-      Math.random() < 0.5 &&
-      this.columns * this.enemySize < this.width * 0.8
-    ) {
-      this.columns++;
-    } else if (this.rows * this.enemySize < this.height * 0.6) {
-      this.rows++;
-    }
+    this.countWave++;
+    if (this.player.lives < this.player.maxLive) this.player.lives++;
+    if (this.countWave % 3 === 0){
+      this.bossArray.push(new Boss(this, this.bossLives));
+    } else {
 
-    this.waves.push(new Wave(this));
+      if (
+        Math.random() < 0.5 &&
+        this.columns * this.enemySize < this.width * 0.8
+      ) {
+        this.columns++;
+      } else if (this.rows * this.enemySize < this.height * 0.6) {
+        this.rows++;
+      }
+      this.waves.push(new Wave(this));
+
+    }
+    
+    this.waves = this.waves.filter((wave) => !wave.markedForDeletion);
   }
 }
 
@@ -608,14 +703,15 @@ addEventListener("load", () => {
     game.bg.width = innerWidth;
     game.bg.height = innerHeight;
     game.player.y = innerHeight - game.player.height;
-    if (navigator.userAgent.match(/Android/i)
-         || navigator.userAgent.match(/webOS/i)
-         || navigator.userAgent.match(/iPhone/i)
-         || navigator.userAgent.match(/iPad/i)
-         || navigator.userAgent.match(/iPod/i)
-         || navigator.userAgent.match(/BlackBerry/i)
-         || navigator.userAgent.match(/Windows Phone/i)){
-
-         }
+    if (
+      navigator.userAgent.match(/Android/i) ||
+      navigator.userAgent.match(/webOS/i) ||
+      navigator.userAgent.match(/iPhone/i) ||
+      navigator.userAgent.match(/iPad/i) ||
+      navigator.userAgent.match(/iPod/i) ||
+      navigator.userAgent.match(/BlackBerry/i) ||
+      navigator.userAgent.match(/Windows Phone/i)
+    ) {
+    }
   });
 });
