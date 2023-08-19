@@ -661,7 +661,7 @@ class Game {
   newWave() {
     this.countWave++;
     if (this.player.lives < this.player.maxLive) this.player.lives++;
-    if (this.countWave % 3 === 0){
+    if (this.countWave % 4 === 0){
       this.bossArray.push(new Boss(this, this.bossLives));
     } else {
 
