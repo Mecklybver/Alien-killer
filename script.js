@@ -460,7 +460,7 @@ class Boss {
     this.maxLives = this.lives;
     this.markedForDeletion = false;
     this.image = new Image();
-    this.image.src = "./img/Boss.png";
+    this.image.src = "./img/boss.png";
     this.frameX = 0;
     this.frameY = Math.floor(Math.random() * 4);
     this.maxFrame = 11;
