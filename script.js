@@ -11,6 +11,98 @@ canvas.width = innerWidth;
 canvas.height = innerHeight;
 const ctx = canvas.getContext("2d");
 
+class Laser {
+  constructor(game) {
+    this.game = game;
+    this.x = 0;
+    this.y = 0;
+    this.height = this.game.height - 50;
+    this.animationTime = 0;
+    this.oscillation = 0; 
+    this.oscillationSpeed = 0.1; 
+  }
+
+  render(ctx) {
+    this.x =
+      this.game.player.x + this.game.player.width * 0.5 - this.width * 0.5;
+
+    this.game.player.energy -= this.damage;
+
+    const glowIntensity = Math.sin(this.animationTime) * 5;
+
+    this.oscillation =
+      Math.sin(this.animationTime * this.oscillationSpeed) * 10;
+
+    ctx.save();
+
+    const oscillatedY = this.y + this.oscillation;
+
+    ctx.shadowColor = `rgba(255, 223, 0, ${0.5 + glowIntensity})`;
+    ctx.shadowBlur = 15;
+
+    ctx.fillStyle = "gold";
+    ctx.fillRect(this.x - 2, oscillatedY, this.width + 4, this.height);
+
+    ctx.shadowColor = `rgba(255, 255, 255, ${0.3 + glowIntensity})`;
+    ctx.shadowBlur = 8;
+
+    ctx.fillStyle = "white";
+    ctx.fillRect(
+      this.x + this.width * 0.3,
+      oscillatedY,
+      this.width * 0.4,
+      this.height
+    );
+
+    ctx.restore();
+
+    this.animationTime += 0.1;
+
+    if (this.game.spriteUpdate) {
+      this.game.waves.forEach((wave) => {
+        wave.enemies.forEach((enemy) => {
+          if (this.game.checkCollision(enemy, this)) {
+            enemy.hit(this.damage);
+          }
+        });
+      });
+      this.game.bossArray.forEach((boss) => {
+        if (this.game.checkCollision(boss, this) && boss.y >= 0) {
+          boss.hit(this.damage);
+        }
+      });
+    }
+  }
+}
+
+class SmallLaser extends Laser {
+  constructor(game) {
+    super(game);
+    this.width = 5;
+    this.damage = 0.5;
+  }
+  render(ctx) {
+    if (this.game.player.energy > 1 && !this.game.player.coolDown) {
+      super.render(ctx);
+      this.game.player.frameX = 2;
+    }
+  }
+}
+
+class BigLaser extends Laser {
+  constructor(game) {
+    super(game);
+    this.width = 15;
+    this.damage = 1.2;
+  }
+  render(ctx) {
+    if (this.game.player.energy > 1 && !this.game.player.coolDown) {
+      super.render(ctx);
+      this.game.frameX = 3;
+    }
+  }
+}
+
 class Player {
   constructor(game) {
     this.game = game;
@@ -34,6 +126,14 @@ class Player {
     this.SpriteJetsWidth = 140;
     this.SpriteJetsHegiht = 130;
     this.touch = 0;
+    this.smallLaser = new SmallLaser(this.game);
+    this.bigLaser = new BigLaser(this.game);
+    this.energy = 10;
+    this.maxEnergy = 100;
+    this.coolDown = false;
+    this.laser = 0;
+    this.laserTimer = 0;
+    this.add = false;
 
     window.addEventListener(
       "touchstart",
@@ -47,8 +147,19 @@ class Player {
         if (identifier == 2) {
           document.exitFullscreen();
         }
-        if (identifier == 1) {
+        if (identifier == 3) {
+          this.game.restart();
+        }
+        if (identifier == 1 && !this.coolDown) {
           this.shoot();
+          if (this.energy > 60 && !this.game.fired) {
+            this.add = true;
+            this.laser = 1;
+          }
+          if (this.energy > 85 && !this.game.fired) {
+            this.add = true;
+            this.laser = 2;
+          }
         }
         if (identifier == 0) {
           this.touch = e.touches[0].pageX;
@@ -75,6 +186,9 @@ class Player {
       (e) => {
         e.preventDefault();
         this.frameJets = 0;
+        this.add = false;
+        this.laserTimer = 0;
+        this.frameX = 0;
       },
       { passive: false }
     );
@@ -91,18 +205,41 @@ class Player {
             this.keys.push(e.key);
           }
           break;
+
         case "r":
           if (this.game.gameOver) {
             this.game.restart();
           }
           break;
         case " ":
-          if (!this.keys.includes(e.key) && !this.game.fired) {
+          if (
+            !this.keys.includes(e.key) &&
+            !this.game.fired &&
+            this.energy < 60 &&
+            !this.coolDown
+          ) {
             this.keys.push(e.key);
-            this.game.fired = true; // Set the fired flag only once when spacebar is pressed
-            this.shoot(); // Call the shoot method to fire a projectile
+            this.game.fired = true;
+            this.shoot();
+            this.laser = 0;
           }
-          break;
+          if (
+            !this.keys.includes(e.key) &&
+            !this.game.fired &&
+            this.energy >= 60 &&
+            this.energy < 85
+          ) {
+            this.keys.push(e.key);
+            this.laser = 1;
+          }
+          if (
+            !this.keys.includes(e.key) &&
+            !this.game.fired &&
+            this.energy >= 85
+          ) {
+            this.keys.push(e.key);
+            this.laser = 2;
+          }
         default:
           break;
       }
@@ -119,10 +256,13 @@ class Player {
           if (this.keys.indexOf(e.key) !== -1) {
             this.keys.splice(this.keys.indexOf(e.key), 1);
           }
-          break;
+
         case " ":
           if (this.keys.includes(e.key)) {
             this.keys.splice(this.keys.indexOf(e.key), 1);
+            this.game.fired = false;
+            this.laser = 0;
+            this.laserTimer = 0;
           }
           break;
         default:
@@ -136,6 +276,10 @@ class Player {
     this.lives = this.maxLive;
   }
   draw(ctx) {
+    if (this.laser == 1 && this.laserTimer > 100) this.smallLaser.render(ctx);
+    if (this.laser == 2 && this.laserTimer > 100) this.bigLaser.render(ctx);
+    if (this.laser == 0) this.frameX = 0;
+
     ctx.drawImage(
       this.img,
       this.frameX * this.spriteWidth,
@@ -160,6 +304,12 @@ class Player {
     );
   }
   update(deltaTime) {
+    if (this.energy < this.maxEnergy) this.energy += 0.04;
+    if (this.energy < 1) {
+      this.frameX = 0;
+      this.coolDown = true;
+    } else if (this.energy > this.maxEnergy * 0.2) this.coolDown = false;
+
     if (this.keys.includes("ArrowLeft")) {
       this.speed = -4;
       this.frameJets = 0;
@@ -170,9 +320,14 @@ class Player {
       this.speed *= 0.98;
       this.frameJets = 1;
     }
-    if (this.keys.includes(" ") && !this.game.fired) {
+
+    if (
+      (this.keys.includes(" ") && !this.game.fired) ||
+      (this.add && !this.game.fired && !this.coolDown)
+    ) {
       this.shoot();
       this.game.fired = true;
+      if (this.energy > 60) this.laserTimer += deltaTime;
     }
 
     if (this.x <= -this.width * 0.5) this.x = -this.width * 0.5;
@@ -193,6 +348,7 @@ class Player {
   }
   shoot() {
     const projectile = this.game.getProjectiles();
+    this.energy -= 0.25;
     if (projectile) projectile.start(this.x + this.width * 0.5, this.y - 15);
   }
 }
@@ -278,6 +434,7 @@ class Enemy {
       if (this.game.spriteUpdate) this.frameX++;
       if (this.frameX > this.maxFrame) {
         this.markedForDeletion = true;
+
         if (!this.game.gameOver) this.game.score += this.maxLives;
       }
     }
@@ -477,22 +634,29 @@ class Boss {
       this.width,
       this.height
     );
-    if (this.lives > 0) {
+    if (this.lives >= 1) {
       ctx.save();
       ctx.textAlign = "center";
       ctx.shadowOffsetX = 6;
       ctx.shadowOffsetY = 6;
       ctx.shadowColor = "red";
       ctx.shadowBlur = 20;
-      ctx.fillText(this.lives, this.x + this.width * 0.5, this.y + 50);
+      ctx.fillText(
+        Math.floor(this.lives),
+        this.x + this.width * 0.5,
+        this.y + 50
+      );
       ctx.restore();
     }
   }
   update() {
     this.speedY = 0;
-    if (this.game.spriteUpdate && this.lives > 0) this.frameX = 0;
+    if (this.game.spriteUpdate && this.lives >= 1) this.frameX = 0;
     if (this.y < 0) this.y += 10;
-    if (this.x < 0 || this.x > this.game.width - this.width && this.lives > 0) {
+    if (
+      this.x < 0 ||
+      (this.x > this.game.width - this.width && this.lives >= 1)
+    ) {
       this.speedX *= -1;
       this.speedY = this.height * 0.5;
     }
@@ -503,34 +667,34 @@ class Boss {
       if (
         this.game.checkCollision(this, projectile) &&
         !projectile.free &&
-        this.lives > 0
+        this.lives >= 1
       ) {
         this.hit(1);
         projectile.reset();
       }
     });
 
-    if (this.game.checkCollision(this, this.game.player) && this.lives > 0){
+    if (this.game.checkCollision(this, this.game.player) && this.lives >= 1) {
       this.game.gameOver = true;
       this.lives = 0;
     }
 
-
     if (this.lives < 1 && this.game.spriteUpdate) {
       this.frameX++;
-      if (this.frameX  > this.maxFrame){
-         this.markedForDeletion = true;
-         this.game.score += this.maxLives;
-         this.game.bossLives += 5;
-         if(!this.game.gameOver) this.game.newWave();
-        }
+      if (this.frameX > this.maxFrame) {
+        this.markedForDeletion = true;
+        this.game.score += this.maxLives;
+
+        this.game.bossLives += 5;
+        if (!this.game.gameOver) this.game.newWave();
+      }
     }
 
     if (this.y + this.height > this.game.height) this.game.gameOver = true;
   }
   hit(damage) {
     this.lives -= damage;
-    if (this.lives > 0) this.frameX = 1;
+    if (this.lives >= 1) this.frameX = 1;
   }
 }
 
@@ -569,6 +733,8 @@ class Game {
     this.columns = 2;
     this.rows = 2;
     this.countWave = 1;
+    this.player.energy = 20;
+    this.player.coolDown = false;
     this.waves = [];
     this.bossLives = 10;
     this.waves.push(new Wave(this));
@@ -579,8 +745,8 @@ class Game {
 
   draw(ctx) {
     this.bg.draw(ctx);
-    this.bossArray.forEach((boss) => boss.draw(ctx));
     this.player.draw(ctx);
+    this.bossArray.forEach((boss) => boss.draw(ctx));
     this.projectiles.forEach((projectile) => projectile.draw(ctx));
     this.waves.forEach((wave) => wave.draw(ctx));
     this.drawStatusText(ctx);
@@ -594,7 +760,7 @@ class Game {
       this.spriteTimer += deltaTime;
     }
     this.bossArray.forEach((boss) => boss.update(deltaTime));
-    this.bossArray = this.bossArray.filter(boss => !boss.markedForDeletion);
+    this.bossArray = this.bossArray.filter((boss) => !boss.markedForDeletion);
 
     this.player.update(deltaTime);
     this.projectiles.forEach((projectile) => projectile.update(deltaTime));
@@ -642,6 +808,17 @@ class Game {
       ctx.strokeRect(20 + 15 * i, 90, 10, 20);
       ctx.restore();
     }
+    ctx.save();
+    this.player.energy > 60
+      ? (ctx.fillStyle = "orange")
+      : (ctx.fillStyle = "gold");
+    this.player.energy > 85 ? (ctx.fillStyle = "purple") : null;
+    this.player.coolDown ? (ctx.fillStyle = "red") : null;
+
+    for (let i = 6; i < this.player.energy; i++) {
+      ctx.fillRect(2 * i, 130, 2, 15);
+    }
+    ctx.restore();
 
     if (this.gameOver) {
       ctx.save();
@@ -655,16 +832,17 @@ class Game {
 
       ctx.font = `${size}px Impact`;
       ctx.fillText("Press R to restart", this.width * 0.5, this.height * 0.6);
+      ctx.font = "20px Impact";
+      ctx.fillText("or 4-finger-touch", this.width * 0.5, this.height * 0.8);
       ctx.restore();
     }
   }
   newWave() {
     this.countWave++;
     if (this.player.lives < this.player.maxLive) this.player.lives++;
-    if (this.countWave % 4 === 0){
+    if (this.countWave % 4 === 0) {
       this.bossArray.push(new Boss(this, this.bossLives));
     } else {
-
       if (
         Math.random() < 0.5 &&
         this.columns * this.enemySize < this.width * 0.8
@@ -674,9 +852,8 @@ class Game {
         this.rows++;
       }
       this.waves.push(new Wave(this));
-
     }
-    
+
     this.waves = this.waves.filter((wave) => !wave.markedForDeletion);
   }
 }
@@ -698,20 +875,18 @@ addEventListener("load", () => {
   animate(0);
 
   addEventListener("resize", (e) => {
-    canvas.width = innerWidth;
-    canvas.height = innerHeight;
-    game.bg.width = innerWidth;
-    game.bg.height = innerHeight;
-    game.player.y = innerHeight - game.player.height;
-    if (
-      navigator.userAgent.match(/Android/i) ||
-      navigator.userAgent.match(/webOS/i) ||
-      navigator.userAgent.match(/iPhone/i) ||
-      navigator.userAgent.match(/iPad/i) ||
-      navigator.userAgent.match(/iPod/i) ||
-      navigator.userAgent.match(/BlackBerry/i) ||
-      navigator.userAgent.match(/Windows Phone/i)
-    ) {
+    if (document.fullscreenElement) {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      game.bg.width = window.innerWidth;
+      game.bg.height = window.innerHeight;
+      game.player.y = window.innerHeight - game.player.height;
+    } else {
+      canvas.width = innerWidth;
+      canvas.height = innerHeight;
+      game.bg.width = innerWidth;
+      game.bg.height = innerHeight;
+      game.player.y = innerHeight - game.player.height;
     }
   });
 });
