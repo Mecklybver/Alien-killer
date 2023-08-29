@@ -468,8 +468,6 @@ class Beetlemorph extends Enemy {
     this.maxFrame = 5;
     this.lives = 1;
     this.maxLives = this.lives;
-    this.timer = 0;
-    this.interval = 100;
   }
 }
 
@@ -480,11 +478,10 @@ class Rhinomorph extends Enemy {
     this.img.src = this.img.src = "./img/rhinomorph.png";
     this.frameX = 0;
     this.frameY = Math.floor(Math.random() * 4);
-    this.maxFrame = 2;
+    this.maxFrame = 5;
     this.lives = 4;
     this.maxLives = this.lives;
-    this.timer = 0;
-    this.interval = 100;
+  
   }
   hit(damage) {
     this.lives -= damage;
@@ -716,7 +713,7 @@ class Game {
 
     this.spriteUpdate = false;
     this.spriteTimer = 0;
-    this.spriteInterval = 120;
+    this.spriteInterval = 150;
     // this.waves.push(new Wave(this));
     this.countWave = 1;
     this.gameOver = false;
