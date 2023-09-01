@@ -3,30 +3,43 @@ loadingScreen.innerText = "Loading...";
 loadingScreen.style.position = "fixed";
 loadingScreen.style.fontSize = "60px";
 document.body.appendChild(loadingScreen);
+const button = document.createElement("button");
+document.body.appendChild(button);
 
+button.innerText = "Start";
 const canvas = document.createElement("canvas");
 document.body.appendChild(canvas);
+
 let PixelRatio = window.devicePixelRatio;
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 const ctx = canvas.getContext("2d");
 
 class Laser {
-  constructor(game) {
+  constructor(game, isBossLaser = false) {
     this.game = game;
     this.x = 0;
     this.y = 0;
     this.height = this.game.height - 50;
     this.animationTime = 0;
-    this.oscillation = 0; 
-    this.oscillationSpeed = 0.1; 
+    this.oscillation = 0;
+    this.oscillationSpeed = 0.1;
+    this.isBossLaser = isBossLaser;
   }
 
   render(ctx) {
-    this.x =
-      this.game.player.x + this.game.player.width * 0.5 - this.width * 0.5;
-
-    this.game.player.energy -= this.damage;
+    if (this.isBossLaser) {
+      this.x =
+        this.game.bossArray[0].x +
+        this.game.bossArray[0].width * 0.5 -
+        this.width * 0.5;
+      this.y = this.game.bossArray[0].y + this.game.bossArray[0].height * 0.6;
+    } else {
+      this.x =
+        this.game.player.x + this.game.player.width * 0.5 - this.width * 0.5;
+      this.game.player.energy -= this.damage * 0.5;
+      if (!this.game.debug) this.game.player.energy -= 0.1;
+    }
 
     const glowIntensity = Math.sin(this.animationTime) * 5;
 
@@ -35,12 +48,12 @@ class Laser {
 
     ctx.save();
 
-    const oscillatedY = this.y + this.oscillation;
-
     ctx.shadowColor = `rgba(255, 223, 0, ${0.5 + glowIntensity})`;
     ctx.shadowBlur = 15;
+    const oscillatedY = this.y + this.oscillation;
 
     ctx.fillStyle = "gold";
+    if (this.isBossLaser) ctx.fillStyle = "darkred";
     ctx.fillRect(this.x - 2, oscillatedY, this.width + 4, this.height);
 
     ctx.shadowColor = `rgba(255, 255, 255, ${0.3 + glowIntensity})`;
@@ -58,7 +71,12 @@ class Laser {
 
     this.animationTime += 0.1;
 
-    if (this.game.spriteUpdate) {
+    if (this.isBossLaser && this.game.spriteUpdate) {
+      if (this.game.checkCollision(this.game.player, this)) {
+        this.game.player.lives--;
+        if (this.game.player.lives < 1) this.game.gameOver = true;
+      }
+    } else if (this.game.spriteUpdate) {
       this.game.waves.forEach((wave) => {
         wave.enemies.forEach((enemy) => {
           if (this.game.checkCollision(enemy, this)) {
@@ -98,8 +116,20 @@ class BigLaser extends Laser {
   render(ctx) {
     if (this.game.player.energy > 1 && !this.game.player.coolDown) {
       super.render(ctx);
-      this.game.frameX = 3;
+      this.game.player.frameX = 3;
     }
+  }
+}
+
+class BossLaser extends Laser {
+  constructor(game, isBossLaser) {
+    super(game, true);
+    this.isBossLaser = isBossLaser;
+    this.width = 15;
+    this.damage = 0.5;
+  }
+  render(ctx) {
+    super.render(ctx);
   }
 }
 
@@ -115,8 +145,8 @@ class Player {
     this.img2.src = "./img/player_jets.png";
     this.spriteWidth = 140;
     this.spriteHeight = 120;
-    this.width = (65 / PixelRatio) * 1.4;
-    this.height = (65 / PixelRatio) * 1.4;
+    this.width = (65 / PixelRatio) * 1.5;
+    this.height = (65 / PixelRatio) * 1.5;
     this.x = this.game.width * 0.5 - this.width * 0.5;
     this.y = this.game.height - this.height * 1.08;
     this.frameX = 0;
@@ -129,17 +159,21 @@ class Player {
     this.smallLaser = new SmallLaser(this.game);
     this.bigLaser = new BigLaser(this.game);
     this.energy = 10;
-    this.maxEnergy = 100;
+    this.maxEnergy = 120;
     this.coolDown = false;
     this.laser = 0;
     this.laserTimer = 0;
+    this.activeSmallLaser = 60;
+    this.activeBigLaser = 85;
     this.add = false;
+   
 
     window.addEventListener(
       "touchstart",
       (e) => {
-        e.preventDefault();
         document.documentElement.requestFullscreen();
+        e.preventDefault();
+
         let identifier;
         [...e.changedTouches].forEach((touch) => {
           identifier = touch.identifier;
@@ -152,11 +186,11 @@ class Player {
         }
         if (identifier == 1 && !this.coolDown) {
           this.shoot();
-          if (this.energy > 60 && !this.game.fired) {
+          if (this.energy > this.activeSmallLaser && !this.game.fired) {
             this.add = true;
             this.laser = 1;
           }
-          if (this.energy > 85 && !this.game.fired) {
+          if (this.energy > this.activeBigLaser && !this.game.fired) {
             this.add = true;
             this.laser = 2;
           }
@@ -172,10 +206,10 @@ class Player {
       (e) => {
         e.preventDefault();
         if (this.touch > e.touches[0].pageX) {
-          this.speed = -(this.touch - e.touches[0].pageX) / 20;
+          this.speed = -(this.touch - e.touches[0].pageX) / 40;
           this.frameJets = 2;
         } else {
-          this.speed = (e.touches[0].pageX - this.touch) / 20;
+          this.speed = (e.touches[0].pageX - this.touch) / 40;
           this.frameJets = 0;
         }
       },
@@ -211,11 +245,21 @@ class Player {
             this.game.restart();
           }
           break;
+        case "d":
+          this.game.debug = !this.game.debug;
+
+          break;
+        case "2":
+          if (this.game.debug) this.laser = 1;
+          break;
+        case "3":
+          if (this.game.debug) this.laser = 2;
+          break;
         case " ":
           if (
             !this.keys.includes(e.key) &&
             !this.game.fired &&
-            this.energy < 60 &&
+            this.energy < this.activeSmallLaser &&
             !this.coolDown
           ) {
             this.keys.push(e.key);
@@ -226,8 +270,8 @@ class Player {
           if (
             !this.keys.includes(e.key) &&
             !this.game.fired &&
-            this.energy >= 60 &&
-            this.energy < 85
+            this.energy >= this.activeSmallLaser &&
+            this.energy < this.activeBigLaser
           ) {
             this.keys.push(e.key);
             this.laser = 1;
@@ -235,7 +279,7 @@ class Player {
           if (
             !this.keys.includes(e.key) &&
             !this.game.fired &&
-            this.energy >= 85
+            this.energy >= this.activeBigLaser
           ) {
             this.keys.push(e.key);
             this.laser = 2;
@@ -256,7 +300,13 @@ class Player {
           if (this.keys.indexOf(e.key) !== -1) {
             this.keys.splice(this.keys.indexOf(e.key), 1);
           }
-
+          break;
+        case "2":
+          if (this.game.debug) this.laser = 0;
+          break;
+        case "3":
+          if (this.game.debug) this.laser = 0;
+          break;
         case " ":
           if (this.keys.includes(e.key)) {
             this.keys.splice(this.keys.indexOf(e.key), 1);
@@ -276,9 +326,32 @@ class Player {
     this.lives = this.maxLive;
   }
   draw(ctx) {
-    if (this.laser == 1 && this.laserTimer > 100) this.smallLaser.render(ctx);
-    if (this.laser == 2 && this.laserTimer > 100) this.bigLaser.render(ctx);
+    if (this.laser == 1 && this.laserTimer > 80) this.smallLaser.render(ctx);
+    if (this.game.debug && this.laser == 1) this.smallLaser.render(ctx);
+    if (this.game.debug && this.laser == 2) this.bigLaser.render(ctx);
+    if (this.laser == 2 && this.laserTimer > 80) this.bigLaser.render(ctx);
     if (this.laser == 0) this.frameX = 0;
+    ctx.save();
+   
+
+    if (this.energy >= this.activeBigLaser) {
+      ctx.shadowBlur = this.energy * 0.3;
+      ctx.shadowColor = "white";
+    } else if (this.energy >= this.activeSmallLaser) {
+      ctx.shadowBlur = this.energy * 0.1;
+      ctx.shadowColor = "white";
+    } else if (this.energy <= 15 && this.game.timer > 50) {
+      ctx.shadowBlur = 50;
+      ctx.shadowColor = "red";
+    } else {
+      ctx.shadowBlur = this.energy * 0.1;
+      ctx.shadowColor = "blue";
+    }
+
+    if (this.coolDown) {
+      ctx.shadowColor = "red";
+      ctx.shadowBlur = 40;
+    }
 
     ctx.drawImage(
       this.img,
@@ -302,9 +375,15 @@ class Player {
       this.width,
       this.height
     );
+    ctx.restore();
   }
   update(deltaTime) {
-    if (this.energy < this.maxEnergy) this.energy += 0.04;
+    if (this.lives <= 0) this.game.gameOver = true;
+    if (this.energy < this.maxEnergy) this.energy += 0.025;
+    if (this.energy >= this.maxEnergy * 0.4 && this.energy < this.maxEnergy)
+      this.energy += 0.01;
+    if (this.energy >= this.maxEnergy * 0.8 && this.energy < this.maxEnergy)
+      this.energy += 0.005;
     if (this.energy < 1) {
       this.frameX = 0;
       this.coolDown = true;
@@ -327,7 +406,7 @@ class Player {
     ) {
       this.shoot();
       this.game.fired = true;
-      if (this.energy > 60) this.laserTimer += deltaTime;
+      if (this.energy > this.activeSmallLaser) this.laserTimer += deltaTime;
     }
 
     if (this.x <= -this.width * 0.5) this.x = -this.width * 0.5;
@@ -347,14 +426,20 @@ class Player {
     this.x += this.speed;
   }
   shoot() {
+    this.frameX = 1;
     const projectile = this.game.getProjectiles();
-    this.energy -= 0.25;
-    if (projectile) projectile.start(this.x + this.width * 0.5, this.y - 15);
+    if (!this.game.debug) this.energy -= 0.3;
+    if (projectile && this.laser == 0)
+      projectile.start(this.x + this.width * 0.5, this.y - 20);
+    if (projectile && this.laser == 1)
+      projectile.start(this.x + this.width * 0.5, this.y);
+    if (projectile && this.laser == 2)
+      projectile.start(this.x + this.width * 0.5, this.y);
   }
 }
 
 class Projectile {
-  constructor(game) {
+  constructor(game, enemy = false) {
     this.game = game;
     this.width = 4;
     this.height = 20;
@@ -362,18 +447,22 @@ class Projectile {
     this.y = 0;
     this.speed = 20;
     this.free = true;
+    this.enemy = enemy
   }
 
   draw(ctx) {
     if (!this.free) {
+      ctx.save();
       ctx.fillStyle = "darkorange";
       ctx.fillRect(this.x, this.y, this.width, this.height);
+      ctx.restore();
     }
   }
 
   update() {
     if (!this.free) {
-      this.y -= this.speed;
+      if(!this.enemy)this.y -= this.speed;
+      if(this.enemy) this.y += this.speed
       if (this.y < -this.height) this.reset();
     }
   }
@@ -402,7 +491,12 @@ class Enemy {
     this.spriteSize = 80;
   }
   draw(ctx) {
-    // ctx.strokeRect(this.x, this.y, this.width, this.height);
+    ctx.save();
+    ctx.strokeStyle = "red";
+    if (this.game.debug)
+      ctx.strokeRect(this.x, this.y, this.width, this.height);
+    ctx.save();
+
     ctx.drawImage(
       this.img,
       this.frameX * this.spriteSize,
@@ -414,6 +508,7 @@ class Enemy {
       this.width,
       this.height
     );
+    ctx.restore();
   }
   update(x, y) {
     this.x = x + this.positionX;
@@ -434,7 +529,6 @@ class Enemy {
       if (this.game.spriteUpdate) this.frameX++;
       if (this.frameX > this.maxFrame) {
         this.markedForDeletion = true;
-
         if (!this.game.gameOver) this.game.score += this.maxLives;
       }
     }
@@ -450,7 +544,8 @@ class Enemy {
 
     //lose condition
     if (this.y + this.height > this.game.height) {
-      this.game.gameOver = true;
+      // this.game.gameOver = true;
+      this.game.player.lives--;
       this.markedForDeletion = true;
     }
   }
@@ -481,7 +576,6 @@ class Rhinomorph extends Enemy {
     this.maxFrame = 5;
     this.lives = 4;
     this.maxLives = this.lives;
-  
   }
   hit(damage) {
     this.lives -= damage;
@@ -496,7 +590,10 @@ class Wave {
     this.height = this.game.rows * this.game.enemySize;
     this.x = this.game.width * 0.5 - this.width * 0.5;
     this.y = -this.height + this.game.enemySize;
-    this.speedX = Math.random() > 0.5 ? 2 : -2;
+    this.speedX =
+      Math.random() > 0.5
+        ? (this.game.width / this.game.width) * 1.15
+        : -((this.game.width / this.game.width) * 1.15);
     this.speedY = 0;
     this.enemies = [];
     this.markedForDeletion = false;
@@ -508,7 +605,7 @@ class Wave {
       for (let x = 0; x < this.game.columns; x++) {
         let enemyX = x * this.game.enemySize;
         let enemyY = y * this.game.enemySize;
-        if (Math.random() < 0.2) {
+        if (Math.random() < 0.15) {
           this.enemies.push(new Rhinomorph(this.game, enemyX, enemyY));
         } else {
           this.enemies.push(new Beetlemorph(this.game, enemyX, enemyY));
@@ -517,23 +614,48 @@ class Wave {
     }
   }
   draw(ctx) {
-    ctx.strokeStyle = "red";
-    // ctx.strokeRect (this.x, this.y, this.width, this.height);
+    ctx.save();
+    ctx.strokeStyle = "yellow";
+    ctx.lineWidth = 3;
+    if (this.game.debug)
+      ctx.strokeRect(this.x, this.y, this.width, this.height);
+    ctx.restore();
     this.enemies.forEach((enemy) => enemy.draw(ctx));
   }
   update(deltaTime) {
     if (this.y < 0) this.y += 5;
     this.speedY = 0;
+
     if (this.x < 0 || this.x > this.game.width - this.width) {
       this.speedX *= -1;
       this.speedY = this.game.enemySize;
     }
+
     this.x += this.speedX;
     this.y += this.speedY;
 
     this.enemies.forEach((enemy) => enemy.update(this.x, this.y, deltaTime));
     this.enemies = this.enemies.filter((enemy) => !enemy.markedForDeletion);
     if (this.enemies.length <= 0) this.markedForDeletion = true;
+
+    //bounding box
+
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    this.enemies.forEach((enemy) => {
+      if (enemy.x < minX) minX = enemy.x;
+      if (enemy.y < minY) minY = enemy.y;
+      if (enemy.x + enemy.width > maxX) maxX = enemy.x + enemy.width;
+      if (enemy.y + enemy.height > maxY) maxY = enemy.y + enemy.height;
+    });
+
+    // this.x = minX;
+    // this.y = minY;
+    // this.width = maxX - minX;
+    // this.height = maxY - minY;
   }
 }
 
@@ -547,26 +669,29 @@ class Background {
     this.width = this.game.width * PixelRatio;
     this.height = this.game.height * 3 * PixelRatio;
     this.startRadius = 1;
-    this.numberOfStars = 200;
+    this.numberOfStars = Math.floor(canvas.width * 0.04);
     this.stars = [];
+    this.movingAlpha = 0
     this.createStars();
   }
 
   draw(ctx) {
     this.update();
-    ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
-    ctx.drawImage(
-      this.img,
-      this.x,
-      this.y - this.height + 2,
-      this.width,
-      this.height
-    );
+    for (let i = 0; i < 2; i++) {
+      ctx.drawImage(
+        this.img,
+        this.x,
+        this.y - i * this.height,
+        this.width,
+        this.height
+      );
+    }
 
-    // Draw the stars
-    ctx.fillStyle = "white";
     this.stars.forEach((star) => {
       ctx.save();
+      ctx.fillStyle = "white";
+      ctx.shadowBlur = this.movingAlpha;
+      ctx.shadowColor = "white";
       ctx.globalAlpha = star.alpha;
       ctx.beginPath();
       ctx.arc(star.x, star.y, this.startRadius, 0, Math.PI * 2);
@@ -578,15 +703,15 @@ class Background {
   update() {
     this.y += 0.3;
     if (this.y >= this.height) this.y = 0;
-    let movingAlpha = -0.01;
+    this.movingAlpha = Math.random() * 0.005 -0.01;
 
     this.stars.forEach((star) => {
       star.y += 0.3;
       if (star.y > this.game.height) star.y = 0;
-      star.alpha += movingAlpha;
+      star.alpha += this.movingAlpha;
       star.alpha = Math.max(0, Math.min(star.alpha, 1));
       if (star.alpha <= 0 || star.alpha >= 1) {
-        movingAlpha *= -1;
+        this.movingAlpha *= -1;
       }
     });
   }
@@ -600,7 +725,6 @@ class Background {
     }
   }
 }
-// to finish boss class
 class Boss {
   constructor(game, bossLives) {
     this.game = game;
@@ -618,8 +742,24 @@ class Boss {
     this.frameX = 0;
     this.frameY = Math.floor(Math.random() * 4);
     this.maxFrame = 11;
+    this.shoot = false;
+    this.laser = new BossLaser(this.game, true);
+    this.energy = 0;
+    this.maxEnergy = 10 * this.maxLives * 0.8;
+    this.flash = false;
+    this.alpha = 1;
   }
   draw(ctx) {
+    if (this.shoot && this.alpha >= 1) this.laser.render(ctx);
+    ctx.save();
+    ctx.shadowBlur = this.energy;
+    ctx.shadowColor = "orange";
+
+    if (this.shoot) ctx.shadowColor = "red";
+    if (this.flash && this.lives > 1) {
+      ctx.globalAlpha = this.alpha;
+      this.shoot = false;
+    }
     ctx.drawImage(
       this.image,
       this.frameX * this.width,
@@ -631,13 +771,16 @@ class Boss {
       this.width,
       this.height
     );
+    ctx.restore();
     if (this.lives >= 1) {
       ctx.save();
       ctx.textAlign = "center";
-      ctx.shadowOffsetX = 6;
-      ctx.shadowOffsetY = 6;
+      ctx.shadowOffsetX = 16;
+      ctx.shadowOffsetY = 16;
       ctx.shadowColor = "red";
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 60;
+      ctx.font = "30px Impact";
+      ctx.fillStyle = "white";
       ctx.fillText(
         Math.floor(this.lives),
         this.x + this.width * 0.5,
@@ -647,12 +790,36 @@ class Boss {
     }
   }
   update() {
+    const randomize = Math.random();
+    if (
+      randomize > 0.9 &&
+      (this.speedX === 1 || this.speedX === -1) &&
+      this.x < this.game.width * 0.55 &&
+      this.x > this.game.width * 0.45
+    ) {
+      this.speedX *= Math.floor(
+        this.game.width * 0.08 + Math.random() * this.game.width * 0.05
+      );
+      this.alpha = 0.1;
+      this.flash = true;
+    } else if (randomize < 0.9 && this.speedX !== 1 && this.speedX !== -1) {
+      this.speedX = this.speedX > 0 ? 1 : -1;
+    }
+    if (this.alpha !== 1) this.alpha += 0.01;
+
+    this.energy += 0.3;
+    if (this.energy >= this.maxEnergy * 0.75 && this.lives >= 1)
+      this.shoot = true;
+    if (this.energy >= this.maxEnergy || this.lives < 1) {
+      this.energy = 0;
+      this.shoot = false;
+    }
     this.speedY = 0;
     if (this.game.spriteUpdate && this.lives >= 1) this.frameX = 0;
     if (this.y < 0) this.y += 10;
     if (
-      this.x < 0 ||
-      (this.x > this.game.width - this.width && this.lives >= 1)
+      (this.x < 0 || this.x > this.game.width - this.width) &&
+      (this.game.gameOver || this.lives >= 1)
     ) {
       this.speedX *= -1;
       this.speedY = this.height * 0.5;
@@ -697,6 +864,8 @@ class Boss {
 
 class Game {
   constructor(canvas) {
+    this.debug = false;
+    this.gameStar = false;
     this.canvas = canvas;
     this.width = this.canvas.width;
     this.height = this.canvas.height;
@@ -710,17 +879,15 @@ class Game {
     this.rows = 2;
     this.enemySize = (70 / PixelRatio) * 1.4;
     this.waves = [];
-
     this.spriteUpdate = false;
     this.spriteTimer = 0;
     this.spriteInterval = 150;
-    // this.waves.push(new Wave(this));
     this.countWave = 1;
     this.gameOver = false;
     this.fired = false;
     this.bossArray = [];
     this.bossLives = 10;
-    this.restart();
+    this.timer = 0;
   }
   restart() {
     this.player.restart();
@@ -741,33 +908,44 @@ class Game {
   }
 
   draw(ctx) {
-    this.bg.draw(ctx);
-    this.player.draw(ctx);
-    this.bossArray.forEach((boss) => boss.draw(ctx));
-    this.projectiles.forEach((projectile) => projectile.draw(ctx));
-    this.waves.forEach((wave) => wave.draw(ctx));
-    this.drawStatusText(ctx);
+    if (this.gameStar) {
+      this.player.draw(ctx);
+      this.bossArray.forEach((boss) => boss.draw(ctx));
+      this.projectiles.forEach((projectile) => projectile.draw(ctx));
+      this.waves.forEach((wave) => wave.draw(ctx));
+      this.drawStatusText(ctx);
+    }
   }
   update(deltaTime) {
-    if (this.spriteTimer > this.spriteInterval) {
-      this.spriteUpdate = true;
-      this.spriteTimer = 0;
-    } else {
-      this.spriteUpdate = false;
-      this.spriteTimer += deltaTime;
+    if (this.player.energy < 20) {
+      this.timer += 2;
+      this.timer %= 100;
     }
-    this.bossArray.forEach((boss) => boss.update(deltaTime));
-    this.bossArray = this.bossArray.filter((boss) => !boss.markedForDeletion);
-
-    this.player.update(deltaTime);
-    this.projectiles.forEach((projectile) => projectile.update(deltaTime));
-    this.waves.forEach((wave) => {
-      wave.update(deltaTime);
-      if (wave.enemies.length < 1 && !wave.nextWaveTrigger && !this.gameOver) {
-        this.newWave();
-        wave.nextWaveTrigger = true;
+    if (this.gameStar) {
+      if (this.spriteTimer > this.spriteInterval) {
+        this.spriteUpdate = true;
+        this.spriteTimer = 0;
+      } else {
+        this.spriteUpdate = false;
+        this.spriteTimer += deltaTime;
       }
-    });
+      this.bossArray.forEach((boss) => boss.update(deltaTime));
+      this.bossArray = this.bossArray.filter((boss) => !boss.markedForDeletion);
+
+      this.player.update(deltaTime);
+      this.projectiles.forEach((projectile) => projectile.update(deltaTime));
+      this.waves.forEach((wave) => {
+        wave.update(deltaTime);
+        if (
+          wave.enemies.length < 1 &&
+          !wave.nextWaveTrigger &&
+          !this.gameOver
+        ) {
+          this.newWave();
+          wave.nextWaveTrigger = true;
+        }
+      });
+    }
   }
   createProjectiles() {
     for (let i = 0; i < this.numberOfProjectiles; i++) {
@@ -788,10 +966,12 @@ class Game {
     );
   }
   drawStatusText(ctx) {
-    ctx.font = "40px Helvetica";
+    ctx.save();
+    ctx.font = `30px Helvetica`;
     ctx.fillStyle = "white";
+    ctx.textAlign = "left";
     ctx.fillText(`Score: ${this.score}`, 20, 40);
-    ctx.fillText(`Wave: ${this.countWave}`, 20, 80);
+    ctx.fillText(`Wave: ${this.countWave}`, 20, 70);
 
     for (let i = 0; i < this.player.lives; i++) {
       ctx.save();
@@ -805,15 +985,18 @@ class Game {
       ctx.strokeRect(20 + 15 * i, 90, 10, 20);
       ctx.restore();
     }
-    ctx.save();
-    this.player.energy > 60
+    this.player.energy > this.player.activeSmallLaser
       ? (ctx.fillStyle = "orange")
       : (ctx.fillStyle = "gold");
-    this.player.energy > 85 ? (ctx.fillStyle = "purple") : null;
+    this.player.energy > this.player.activeBigLaser
+      ? (ctx.fillStyle = "purple")
+      : null;
     this.player.coolDown ? (ctx.fillStyle = "red") : null;
+    if (this.player.energy < 15 && this.timer > 50) ctx.fillStyle = "red";
+    if (this.player.energy < 15 && this.timer <= 50) ctx.fillStyle = "gold";
 
     for (let i = 6; i < this.player.energy; i++) {
-      ctx.fillRect(2 * i, 130, 2, 15);
+      ctx.fillRect(10 + 2 * i, 130, 2, 15);
     }
     ctx.restore();
 
@@ -825,6 +1008,7 @@ class Game {
       ctx.shadowColor = "black";
       ctx.shadowOffsetX = 6;
       ctx.shadowOffsetY = 6;
+      ctx.fillStyle = "white";
       ctx.fillText("GAME OVER", this.width * 0.5, this.height * 0.5);
 
       ctx.font = `${size}px Impact`;
@@ -857,33 +1041,99 @@ class Game {
 
 addEventListener("load", () => {
   document.body.removeChild(loadingScreen);
-
   const game = new Game(canvas);
+  game.height = window.innerHeight;
+  game.width = window.innerWidth;
 
   let lastTime = 0;
   function animate(stampTime) {
     const deltaTime = stampTime - lastTime;
     lastTime = stampTime;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // ctx.clearRect(0, 0, canvas.width, canvas.height);
+    game.bg.draw(ctx);
+    // console.log(game.waves, game.bossArray);
+    console.log(game.bg.stars)
     requestAnimationFrame(animate);
     game.draw(ctx);
     game.update(deltaTime);
+    if (!game.gameStar) {
+      ctx.save();
+      game.bossArray.forEach((boss) => {
+        boss.draw(ctx);
+        boss.update(deltaTime);
+        boss.y++;
+        if (boss.y > canvas.height) {
+          boss.y = 0 - boss.height;
+          boss.x =
+            window.innerWidth * 0.01 + Math.random() * window.innerWidth * 0.99;
+          boss.frameY = Math.floor(Math.random() * 4);
+        }
+      });
+      ctx.font = `${canvas.width * 0.06}px Impact`;
+      ctx.fillStyle = "red";
+      ctx.textAlign = "center";
+      ctx.fillText("Alien Killer", canvas.width * 0.5, canvas.height * 0.4);
+      ctx.restore;
+    }
   }
+
+  for (let i = 0; i < 4; i++) {
+    const y = Math.random() * canvas.height - canvas.height * 0.5;
+    game.height = innerHeight;
+    game.width = innerWidth;
+    const x =
+      window.innerWidth * 0.01 + Math.random() * window.innerWidth * 0.99;
+    game.bossArray.push(new Boss(game));
+    game.bossArray[i].x = x;
+    game.bossArray[i].y = y;
+  }
+
   animate(0);
 
+  button.addEventListener("click", () => {
+    document.body.removeChild(button);
+    // document.documentElement.requestFullscreen();
+    game.width = window.innerWidth;
+    game.height = window.innerHeight;
+    game.gameStar = true;
+    game.gameOver = false;
+    game.bossArray = [];
+    game.restart();
+
+  });
+  button.addEventListener("touchstart", () => {
+    document.body.removeChild(button);
+    game.width = window.innerWidth;
+    game.height = window.innerHeight;
+    game.gameStar = true;
+    game.gameOver = false;
+    game.bossArray = [];
+    game.restart();
+  });
+
   addEventListener("resize", (e) => {
-    if (document.fullscreenElement) {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      game.bg.width = window.innerWidth;
-      game.bg.height = window.innerHeight;
-      game.player.y = window.innerHeight - game.player.height;
-    } else {
-      canvas.width = innerWidth;
-      canvas.height = innerHeight;
-      game.bg.width = innerWidth;
-      game.bg.height = innerHeight;
-      game.player.y = innerHeight - game.player.height;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    game.width = window.innerWidth;
+    game.height = window.innerHeight;
+    game.bg.width = window.innerWidth;
+    game.bg.height = window.innerHeight;
+    game.player.y = window.innerHeight - game.player.height;
+    game.player.smallLaser.height = window.innerHeight - game.player.height;
+    game.player.bigLaser.height = window.innerHeight - game.player.height;
+    game.waves[0].y = 0;
+
+    if (game.bossArray.length > 0) {
+      game.bossArray[0].y = 0;
+      game.bossArray[0].laser.x =
+        game.bossArray[0].x +
+        game.bossArray[0].width * 0.5 -
+        game.bossArray[0].laser.width * 0.5;
+      game.bossArray[0].laser.y =
+        game.bossArray[0].y + game.bossArray[0].height;
     }
+
+    game.bg.stars = [];
+    game.bg.createStars();
   });
 });
