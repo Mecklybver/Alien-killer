@@ -342,8 +342,8 @@ class Player {
       ctx.shadowBlur = 50;
       ctx.shadowColor = "red";
     } else {
-      ctx.shadowBlur = this.energy * 0.1;
-      ctx.shadowColor = "blue";
+      if(!this.game.lowPerformance) ctx.shadowBlur = this.energy * 0.1;
+      if(!this.game.lowPerformance)ctx.shadowColor = "blue";
     }
 
     if (this.coolDown) {
@@ -793,8 +793,8 @@ class Boss {
   draw(ctx) {
     if (this.shoot && this.alpha >= 1) this.laser.render(ctx);
     ctx.save();
-    ctx.shadowBlur = this.energy;
-    ctx.shadowColor = "orange";
+    if(!this.game.lowPerformance)ctx.shadowBlur = this.energy;
+    if(!this.game.lowPerformance)ctx.shadowColor = "orange";
 
     if (this.shoot) ctx.shadowColor = "red";
     if (this.flash && this.lives > 1) {
@@ -929,6 +929,8 @@ class Game {
     this.bossArray = [];
     this.bossLives = 10;
     this.timer = 0;
+    this.lowPerformance = false;
+
   }
   restart() {
     this.player.restart();
@@ -1109,9 +1111,9 @@ addEventListener("load", () => {
   function animate(stampTime) {
     const deltaTime = stampTime - lastTime;
     lastTime = stampTime;
-    // ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if(game.lowPerformance)ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    if (game.gameStar) ctx.globalAlpha = 0.2;
+    if (game.gameStar && !game.lowPerformance) ctx.globalAlpha = 0.2;
     game.bg.draw(ctx);
     ctx.restore();
     requestAnimationFrame(animate);
@@ -1170,6 +1172,7 @@ addEventListener("load", () => {
     game.gameOver = false;
     game.bossArray = [];
     game.restart();
+    game.lowPerformance = true;
   });
 
   addEventListener("resize", (e) => {
