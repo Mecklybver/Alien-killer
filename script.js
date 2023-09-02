@@ -166,7 +166,6 @@ class Player {
     this.activeSmallLaser = 60;
     this.activeBigLaser = 85;
     this.add = false;
-   
 
     window.addEventListener(
       "touchstart",
@@ -332,7 +331,6 @@ class Player {
     if (this.laser == 2 && this.laserTimer > 80) this.bigLaser.render(ctx);
     if (this.laser == 0) this.frameX = 0;
     ctx.save();
-   
 
     if (this.energy >= this.activeBigLaser) {
       ctx.shadowBlur = this.energy * 0.3;
@@ -340,7 +338,7 @@ class Player {
     } else if (this.energy >= this.activeSmallLaser) {
       ctx.shadowBlur = this.energy * 0.1;
       ctx.shadowColor = "white";
-    } else if (this.energy <= 15 && this.game.timer > 50) {
+    } else if (this.energy <= 15 && this.game.timer > 50 && !this.coolDown) {
       ctx.shadowBlur = 50;
       ctx.shadowColor = "red";
     } else {
@@ -439,7 +437,7 @@ class Player {
 }
 
 class Projectile {
-  constructor(game, enemy = false) {
+  constructor(game, enemy = false, enemyHeight = 0) {
     this.game = game;
     this.width = 4;
     this.height = 20;
@@ -447,13 +445,16 @@ class Projectile {
     this.y = 0;
     this.speed = 20;
     this.free = true;
-    this.enemy = enemy
+    this.enemy = enemy;
+    this.enemyHeight = enemyHeight;
   }
 
   draw(ctx) {
     if (!this.free) {
       ctx.save();
-      ctx.fillStyle = "darkorange";
+      ctx.globalAlpha = 0.9;
+      if (!this.enemy) ctx.fillStyle = "darkorange";
+      if (this.enemy) ctx.fillStyle = "red";
       ctx.fillRect(this.x, this.y, this.width, this.height);
       ctx.restore();
     }
@@ -461,15 +462,15 @@ class Projectile {
 
   update() {
     if (!this.free) {
-      if(!this.enemy)this.y -= this.speed;
-      if(this.enemy) this.y += this.speed
+      if (!this.enemy) this.y -= this.speed;
+      if (this.enemy) this.y += this.speed - 8;
       if (this.y < -this.height) this.reset();
     }
   }
 
   start(x, y) {
     this.x = x - this.width * 0.5;
-    this.y = y;
+    this.y = y + this.enemyHeight;
     this.free = false;
   }
 
@@ -489,6 +490,10 @@ class Enemy {
     this.positionY = positionY;
     this.markedForDeletion = false;
     this.spriteSize = 80;
+    this.projectiles = [];
+    this.numberOfProjectiles = 1;
+    this.createProjectiles();
+    this.ableToShoot = Math.random() < 0.5 ? true : false;
   }
   draw(ctx) {
     ctx.save();
@@ -514,7 +519,15 @@ class Enemy {
     this.x = x + this.positionX;
     this.y = y + this.positionY;
 
-    //check collision with projectiles
+    if (
+      this.frameX === 0 &&
+      this.ableToShoot &&
+      Math.random() > 0.99 &&
+      this.game.spriteUpdate
+    )
+      this.shoot();
+
+    //check collision with projectiles from player
     this.game.projectiles.forEach((projectile) => {
       if (
         !projectile.free &&
@@ -541,6 +554,17 @@ class Enemy {
         if (this.game.player.lives < 1) this.game.gameOver = true;
       }
     }
+    //check collision from enemies' projectile
+
+    this.projectiles.forEach((projectile) => {
+      if (
+        !projectile.free &&
+        this.game.checkCollision(projectile, this.game.player)
+      ) {
+        this.game.player.lives--;
+        projectile.reset();
+      }
+    });
 
     //lose condition
     if (this.y + this.height > this.game.height) {
@@ -551,6 +575,27 @@ class Enemy {
   }
   hit(damage) {
     this.lives -= damage;
+  }
+
+  createProjectiles() {
+    for (let i = 0; i < this.numberOfProjectiles; i++) {
+      this.projectiles.push(new Projectile(this.game, true, this.height));
+    }
+  }
+  getProjectiles() {
+    for (let i = 0; i < this.projectiles.length; i++) {
+      if (this.projectiles[i].free) {
+        return this.projectiles[i];
+      }
+    }
+    return null;
+  }
+
+  shoot() {
+    const projectile = this.getProjectiles();
+    if (projectile) {
+      projectile.start(this.x + this.width * 0.5, this.y - 20);
+    }
   }
 }
 class Beetlemorph extends Enemy {
@@ -669,29 +714,26 @@ class Background {
     this.width = this.game.width * PixelRatio;
     this.height = this.game.height * 3 * PixelRatio;
     this.startRadius = 1;
-    this.numberOfStars = Math.floor(canvas.width * 0.04);
+    this.numberOfStars = Math.floor(canvas.width * 0.02);
     this.stars = [];
-    this.movingAlpha = 0
+    this.movingAlpha = 0;
     this.createStars();
   }
 
   draw(ctx) {
     this.update();
-    for (let i = 0; i < 2; i++) {
-      ctx.drawImage(
-        this.img,
-        this.x,
-        this.y - i * this.height,
-        this.width,
-        this.height
-      );
-    }
-
+    ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
+    ctx.drawImage(
+      this.img,
+      this.x,
+      this.y - this.height + 2,
+      this.width,
+      this.height
+    );
+    // Draw the stars
+    ctx.fillStyle = "white";
     this.stars.forEach((star) => {
       ctx.save();
-      ctx.fillStyle = "white";
-      ctx.shadowBlur = this.movingAlpha;
-      ctx.shadowColor = "white";
       ctx.globalAlpha = star.alpha;
       ctx.beginPath();
       ctx.arc(star.x, star.y, this.startRadius, 0, Math.PI * 2);
@@ -699,23 +741,20 @@ class Background {
       ctx.restore();
     });
   }
-
   update() {
     this.y += 0.3;
     if (this.y >= this.height) this.y = 0;
-    this.movingAlpha = Math.random() * 0.005 -0.01;
-
+    let movingAlpha = -0.01;
     this.stars.forEach((star) => {
       star.y += 0.3;
       if (star.y > this.game.height) star.y = 0;
-      star.alpha += this.movingAlpha;
+      star.alpha += movingAlpha;
       star.alpha = Math.max(0, Math.min(star.alpha, 1));
       if (star.alpha <= 0 || star.alpha >= 1) {
-        this.movingAlpha *= -1;
+        movingAlpha *= -1;
       }
     });
   }
-
   createStars() {
     for (let i = 0; i < this.numberOfStars; i++) {
       const x = Math.random() * this.width;
@@ -902,7 +941,6 @@ class Game {
     this.waves = [];
     this.bossLives = 10;
     this.waves.push(new Wave(this));
-    // this.bossArray.push(new Boss(this, this.bossLives));
     this.gameOver = false;
     this.createProjectiles();
   }
@@ -912,6 +950,14 @@ class Game {
       this.player.draw(ctx);
       this.bossArray.forEach((boss) => boss.draw(ctx));
       this.projectiles.forEach((projectile) => projectile.draw(ctx));
+      this.waves.forEach((wave) => {
+        wave.enemies.forEach((enemy) => {
+          enemy.projectiles.forEach((projectile) => projectile.draw(ctx));
+          // You can also draw the enemy itself here if needed
+          // enemy.draw(ctx);
+        });
+      });
+      // console.log(this.waves[0].enemies[0].projectiles)
       this.waves.forEach((wave) => wave.draw(ctx));
       this.drawStatusText(ctx);
     }
@@ -934,6 +980,16 @@ class Game {
 
       this.player.update(deltaTime);
       this.projectiles.forEach((projectile) => projectile.update(deltaTime));
+      this.waves.forEach((wave) => {
+        wave.enemies.forEach((enemy) => {
+          enemy.projectiles.forEach((projectile) =>
+            projectile.update(deltaTime)
+          );
+          // You can also update the enemy itself here if needed
+          // enemy.update();
+        });
+      });
+
       this.waves.forEach((wave) => {
         wave.update(deltaTime);
         if (
@@ -992,8 +1048,10 @@ class Game {
       ? (ctx.fillStyle = "purple")
       : null;
     this.player.coolDown ? (ctx.fillStyle = "red") : null;
-    if (this.player.energy < 15 && this.timer > 50) ctx.fillStyle = "red";
-    if (this.player.energy < 15 && this.timer <= 50) ctx.fillStyle = "gold";
+    if (this.player.energy < 15 && this.timer > 50 && !this.player.coolDown)
+      ctx.fillStyle = "red";
+    if (this.player.energy < 15 && this.timer <= 50 && !this.player.coolDown)
+      ctx.fillStyle = "gold";
 
     for (let i = 6; i < this.player.energy; i++) {
       ctx.fillRect(10 + 2 * i, 130, 2, 15);
@@ -1050,14 +1108,16 @@ addEventListener("load", () => {
     const deltaTime = stampTime - lastTime;
     lastTime = stampTime;
     // ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    if (game.gameStar) ctx.globalAlpha = 0.2;
     game.bg.draw(ctx);
-    // console.log(game.waves, game.bossArray);
-    console.log(game.bg.stars)
+    ctx.restore();
     requestAnimationFrame(animate);
     game.draw(ctx);
     game.update(deltaTime);
     if (!game.gameStar) {
       ctx.save();
+
       game.bossArray.forEach((boss) => {
         boss.draw(ctx);
         boss.update(deltaTime);
@@ -1099,7 +1159,6 @@ addEventListener("load", () => {
     game.gameOver = false;
     game.bossArray = [];
     game.restart();
-
   });
   button.addEventListener("touchstart", () => {
     document.body.removeChild(button);
