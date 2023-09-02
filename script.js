@@ -491,7 +491,7 @@ class Enemy {
     this.markedForDeletion = false;
     this.spriteSize = 80;
     this.projectiles = [];
-    this.numberOfProjectiles = 1;
+    this.numberOfProjectiles = 5;
     this.createProjectiles();
     this.ableToShoot = Math.random() < 0.5 ? true : false;
   }
@@ -524,8 +524,10 @@ class Enemy {
       this.ableToShoot &&
       Math.random() > 0.99 &&
       this.game.spriteUpdate
-    )
+    ) {
       this.shoot();
+      console.log("shooting");
+    }
 
     //check collision with projectiles from player
     this.game.projectiles.forEach((projectile) => {
